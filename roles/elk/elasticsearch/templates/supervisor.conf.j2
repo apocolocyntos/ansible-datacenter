@@ -1,0 +1,8 @@
+[supervisorctl]
+username=root
+serverurl=unix://{{ supervisor.service.socket }}
+
+[program:{{ elasticsearch.service.name }}]
+command={{ elasticsearch.user.directory }}/bin/elasticsearch
+user={{ elasticsearch.user.name }}
+stdout_logfile={{ elasticsearch.user.directory }}/logs/supervisor.log

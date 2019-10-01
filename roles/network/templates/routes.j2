@@ -1,0 +1,4 @@
+# --- IPv4 routes in CIDR prefix notation:
+# Destination     [Gateway]         -                  Interface
+127.0.0.0/8       -                 -                  lo
+default           {{ datacenter.networking.gateway }}    -                  eth0

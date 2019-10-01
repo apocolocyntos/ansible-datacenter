@@ -1,0 +1,18 @@
+---
+supervisor:
+  service:
+    socket: /var/run/supervisord/supervisord.sock
+    name: supervisord
+  config_directory: /etc/supervisord.d
+  packages:
+  - python2
+  - python-setuptools
+  - python2-pip
+  - python3
+  - python3-setuptools
+  - python3-pip
+  - supervisor
+  pip:
+    executable: pip2
+    packages:
+    - socket.py

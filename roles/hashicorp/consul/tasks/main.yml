@@ -1,0 +1,136 @@
+---
+
+- name: install packages
+  package:
+    name: '{{ consul.packages }}'
+    state: present
+
+
+- name: create group
+  group:
+    name: consul
+    system: yes
+    state: present
+
+- name: create user
+  user:
+    comment: Hashicorp Consul
+    name: consul
+    group: consul
+    home: /srv/consul
+    system: yes
+    state: present
+    create_home: no
+
+- name: create folder
+  file:
+    path: /srv/consul
+    owner: consul
+    group: consul
+    mode: 0700
+    state: directory
+
+- block:
+  - name: download 'consul'
+    get_url:
+      url: 'https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_linux_amd64.zip'
+      dest: /tmp/consul.zip
+      checksum: 'sha256:https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_SHA256SUMS'
+    become: yes
+    become_method: su
+    become_user: consul
+  - name: unzip consul.zip
+    unarchive:
+      src: /tmp/consul.zip
+      dest: /usr/local/bin
+      remote_src: yes
+
+- name: copy config file
+  template:
+    src: consul.hcl.j2
+    dest: /srv/consul/config.hcl
+    owner: consul
+    group: consul
+    mode: 0600
+  notify: restart supervisor
+
+- name: create data folder
+  file:
+    path: /srv/consul/{{ item }}
+    state: directory
+    owner: consul
+    group: consul
+    mode: 0700
+  with_items:
+    - data
+    - logs
+    - ssl
+
+
+- block:
+    - file:
+        path: private/certificates/consul
+        state: directory
+        mode: 0700
+    - openssl_privatekey:
+        path: private/certificates/consul/{{ inventory_hostname }}.key
+        size: 2048
+        mode: 0600
+    - openssl_csr:
+        path: private/certificates/consul/{{ inventory_hostname }}.csr
+        basic_constraints:
+          - CA:FALSE
+        basic_constraints_critical: yes
+        subject_alt_name: "DNS:consul.{{ datacenter.name }}.{{ datacenter.domain }},DNS:{{ inventory_hostname }}.{{ datacenter.name }}.{{ datacenter.domain }}"
+        common_name: 'server.{{ datacenter.name }}.{{ datacenter.domain }}'
+        select_crypto_backend: auto
+        privatekey_path: private/certificates/consul/{{ inventory_hostname }}.key
+        mode: 0600
+    - openssl_certificate:
+        path: private/certificates/consul/{{ inventory_hostname }}.crt
+        csr_path: private/certificates/consul/{{ inventory_hostname }}.csr
+        privatekey_path: private/certificates/consul/{{ inventory_hostname }}.key
+        provider: ownca
+        ownca_path: private/certificates/rootca.crt
+        ownca_privatekey_path: private/certificates/rootca.key
+        ownca_privatekey_passphrase: "{{ lookup('file','private/certificates/rootca.pw') }}"
+        mode: 0600
+  delegate_to: localhost
+  no_log: no
+
+
+- copy:
+    content: |
+      {{ lookup('file','private/certificates/consul/' + inventory_hostname + '.crt') }}
+      {{ lookup('file','private/certificates/rootca.crt') }}
+    dest: /srv/consul/ssl/ca.crt
+    owner: consul
+    group: consul
+    mode: 0400
+  notify: restart supervisor
+
+- copy:
+    src: private/certificates/consul/{{ inventory_hostname }}.{{ item }}
+    dest: /srv/consul/ssl/server.{{ item }}
+    owner: consul
+    group: consul
+    mode: 0400
+  notify: restart supervisor
+  with_items:
+    - crt
+    - key
+
+- name: add supervisor configuration
+  template:
+    src: supervisor.conf.j2
+    dest: /etc/supervisord.d/consul.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart supervisor
+
+- name: start consul
+  supervisorctl:
+    config: /etc/supervisord.d/consul.conf
+    name: consul
+    state: present

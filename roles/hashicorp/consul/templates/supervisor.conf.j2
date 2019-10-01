@@ -1,0 +1,8 @@
+[supervisorctl]
+username=root
+serverurl=unix:///var/run/supervisord/supervisord.sock
+
+[program:consul]
+command=/usr/local/bin/consul agent -config-file="/srv/consul/config.hcl"
+user=consul
+stdout_logfile=/srv/consul/logs/consul.log

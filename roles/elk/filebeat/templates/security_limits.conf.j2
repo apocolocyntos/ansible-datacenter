@@ -1,0 +1,6 @@
+#<domain>      <type>  <item>         <value>
+{{ filebeat.user.name }} hard nofile 65536
+{{ filebeat.user.name }} soft nofile 65536
+{{ filebeat.user.name }} hard fsize ulimited
+{{ filebeat.user.name }} soft fsize ulimited
+{{ filebeat.user.name }} memlock unlimited

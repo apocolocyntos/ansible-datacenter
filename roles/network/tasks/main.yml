@@ -1,0 +1,44 @@
+---
+
+- name: set hostname
+  hostname:
+    name: '{{ inventory_hostname }}'
+
+- name: copy 'routes' file
+  template:
+    src: routes.j2
+    dest: /etc/sysconfig/network/routes
+    owner: root
+    group: root
+    mode: 0644
+
+- name: configure nameserver
+  replace:
+    path: /etc/sysconfig/network/config
+    regexp: NETCONFIG_DNS_STATIC_SERVERS=(.*)
+    replace: NETCONFIG_DNS_STATIC_SERVERS="{% for nameserver in datacenter.nameserver %}{{ nameserver }}{% if not loop.last %} {% else %}{% endif %}{% endfor %}"
+
+- name: configure network device
+  template:
+    src: ifcfg-eth0.j2
+    dest: /etc/sysconfig/network/ifcfg-eth0
+    owner: root
+    group: root
+    mode: 0644
+
+- name: configure 'hosts' file
+  template:
+    src: hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: 0644
+
+- replace:
+    replace: "ansible_host: {{ next_ip }}"
+    regexp: ansible_host:\s(.*)
+    path: host_vars/{{ inventory_hostname }}.yml
+  delegate_to: localhost
+
+- reboot:
+  ignore_errors:  yes

@@ -1,0 +1,17 @@
+---
+
+filebeat:
+  username: admin
+  password: "{{ lookup('password', 'private/filebeat/' + inventory_hostname + '_admin_password length=32 chars=ascii_letters,digits,hexdigits') }}"
+  service:
+    name: filebeat
+    port: 5601
+  user:
+    name: root
+    comment: root
+    directory: /srv/filebeat
+  group:
+    name: root
+  filename: filebeat-7.3.2-linux-x86_64
+  url: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.3.2-linux-x86_64.tar.gz
+  checksum: 'sha512:https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.3.2-linux-x86_64.tar.gz.sha512'

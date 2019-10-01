@@ -1,0 +1,9 @@
+[supervisorctl]
+username=root
+serverurl=unix://{{ supervisor.service.socket }}
+
+[program:grafana]
+command={{ grafana.user.directory }}/bin/grafana-server -config '{{ grafana.user.directory }}/conf/grafana.ini'
+user=grafana
+directory={{ grafana.user.directory }}
+stdout_logfile={{ grafana.user.directory }}/logs/grafana.log

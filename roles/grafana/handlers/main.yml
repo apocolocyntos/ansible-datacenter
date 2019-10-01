@@ -1,0 +1,7 @@
+---
+
+- name: restart grafana
+  supervisorctl:
+    config: "{{ supervisor.config_directory }}/grafana.conf"
+    name: grafana
+    state: restarted

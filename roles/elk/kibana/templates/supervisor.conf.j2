@@ -1,0 +1,8 @@
+[supervisorctl]
+username=root
+serverurl=unix://{{ supervisor.service.socket }}
+
+[program:{{ kibana.service.name }}]
+command={{ kibana.user.directory }}/bin/kibana
+user={{ kibana.user.name }}
+stdout_logfile={{ kibana.user.directory }}/logs/supervisor.log

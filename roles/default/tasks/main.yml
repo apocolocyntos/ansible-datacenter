@@ -1,0 +1,14 @@
+---
+
+- name: set hostname
+  hostname:
+    name: '{{ inventory_hostname }}'
+
+- name: install default packages
+  package:
+    name: '{{ packages }}'
+
+- name: set root password
+  user:
+    name: root
+    password: "{{ root_password }}"

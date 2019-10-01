@@ -1,0 +1,20 @@
+---
+
+- name: import variables for {{ ansible_distribution_file_variety | lower }}
+  include_vars: "{{ ansible_distribution_file_variety | lower }}.yml"
+
+- name: install dependencies
+  package:
+    name: "{{ supervisor.packages }}"
+    state: present
+
+- name: install pip-packages
+  pip:
+    name: "{{ supervisor.pip.packages }}"
+    state: present
+
+- name: start supervisor
+  service:
+    name: '{{ supervisor.service.name }}'
+    state: started
+    enabled: yes

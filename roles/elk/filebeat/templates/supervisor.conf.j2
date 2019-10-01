@@ -1,0 +1,8 @@
+[supervisorctl]
+username=root
+serverurl=unix://{{ supervisor.service.socket }}
+
+[program:{{ filebeat.service.name }}]
+command={{ filebeat.user.directory }}/filebeat -c {{ filebeat.user.directory }}/filebeat.yml
+user={{ filebeat.user.name }}
+stdout_logfile={{ filebeat.user.directory }}/logs/supervisor.log

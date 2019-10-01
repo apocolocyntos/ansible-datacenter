@@ -1,0 +1,103 @@
+---
+# local requirements
+- hosts: localhost
+  vars_files:
+    - group_vars/datacenter.yml
+  tasks:
+    - block:
+        - name: exclude private folder from git
+          lineinfile:
+            line: '**/private/*'
+            path: .gitignore
+            state: present
+        - name: create local private folder
+          file:
+            path: private
+            state: directory
+            mode: 0700
+    - file:
+        path: private
+        state: directory
+        mode: 0700
+    - openssl_privatekey:
+        path: private/certificates/rootca.key
+        size: 4096
+        cipher: auto
+        passphrase: "{{ lookup('password', 'private/certificates/rootca.pw length=32 chars=ascii_letters,digits,hexdigits') }}"
+        mode: 0600
+    - openssl_csr:
+        path: private/certificates/rootca.csr
+        basic_constraints: 
+          - CA:TRUE
+          - pathlen:0
+        basic_constraints_critical: yes
+        key_usage:
+          - cRLSign
+          - digitalSignature
+          - keyCertSign
+        key_usage_critical: yes
+        common_name: '{{ datacenter.name }}.{{ datacenter.domain }}'
+        select_crypto_backend: auto
+        privatekey_path: private/certificates/rootca.key
+        privatekey_passphrase: "{{ lookup('file','private/certificates/rootca.pw') }}"
+        mode: 0600
+    - openssl_certificate:
+        path: private/certificates/rootca.crt
+        csr_path: private/certificates/rootca.csr
+        privatekey_path: private/certificates/rootca.key
+        privatekey_passphrase: "{{ lookup('file','private/certificates/rootca.pw') }}"
+        provider: selfsigned
+        mode: 0600
+
+# default setup with prometheus node_exporter
+- hosts: datacenter
+
+  vars:
+    root_password: "{{ lookup('password', 'private/root_passwords/' + inventory_hostname + ' length=32 chars=ascii_letters,digits,hexdigits encrypt=sha256_crypt') }}"
+    openjdk:
+      packages: java-1_8_0-openjdk
+
+  pre_tasks:
+    - name: disable firewalld
+      service:
+        name: firewalld
+        state: stopped
+        enabled: no
+  
+  roles:
+    - role: default
+
+    - role: prometheus/node_exporter
+
+    - role: elk/filebeat
+
+    - role: prometheus/server
+      when: inventory_hostname in groups['prometheus']
+
+    - role: grafana
+      vars:
+        grafana:
+          openssl:
+            common_name: grafana.dc1.net
+          service:
+            name: grafana
+            port: 3000
+            domain: localhost
+            protocol: https
+          admin_user: admin
+          admin_password: "{{ lookup('password', 'private/grafana/' + inventory_hostname + '_admin_password length=32 chars=ascii_letters,digits,hexdigits') }}"
+          secret_key: "{{ lookup('password', 'private/grafana/' + inventory_hostname + '_secret_key length=32 chars=ascii_letters,digits,hexdigits') }}"
+          user:
+            name: grafana
+            group: grafana
+            directory: /srv/grafana
+          filename: grafana-6.3.5
+          url: https://dl.grafana.com/oss/release/grafana-6.3.5.linux-amd64.tar.gz
+          checksum: 0104bfe14444cea2fa3f021b9a75fc78f66434f2ca8f3d0bdd422d108ce682e7
+
+      when: inventory_hostname in groups['grafana']
+
+    - role: elk/elasticsearch
+      when: inventory_hostname in groups['elasticsearch']
+    - role: elk/kibana
+      when: inventory_hostname in groups['kibana']

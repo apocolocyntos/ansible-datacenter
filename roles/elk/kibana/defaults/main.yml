@@ -1,0 +1,17 @@
+---
+
+kibana:
+  username: admin
+  password: "{{ lookup('password', 'private/kibana/' + inventory_hostname + '_admin_password length=32 chars=ascii_letters,digits,hexdigits') }}"
+  service:
+    name: kibana
+    port: 5601
+  user:
+    name: kibana
+    comment: kibana
+    directory: /srv/kibana
+  group:
+    name: kibana
+  filename: kibana-7.3.2-linux-x86_64
+  url: https://artifacts.elastic.co/downloads/kibana/kibana-7.3.2-linux-x86_64.tar.gz
+  checksum: 'sha512:https://artifacts.elastic.co/downloads/kibana/kibana-7.3.2-linux-x86_64.tar.gz.sha512'

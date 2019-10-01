@@ -1,0 +1,8 @@
+[supervisorctl]
+username=root
+serverurl=unix:///var/run/supervisord/supervisord.sock
+
+[program:vault]
+command=/usr/local/bin/vault server -config="/srv/vault/config.hcl"
+user=vault
+stdout_logfile=/srv/vault/logs/vault.log

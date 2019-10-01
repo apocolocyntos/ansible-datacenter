@@ -1,0 +1,11 @@
+ansible_user: root
+
+datacenter:
+  name: dc
+  domain: yadc.net
+  nameserver:
+    - 192.168.100.1
+  networking:
+    network: 192.168.100.0
+    gateway: 192.168.100.1
+    netmask: 255.255.255.240

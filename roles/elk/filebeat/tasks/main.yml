@@ -1,0 +1,95 @@
+---
+
+- name: create group
+  file:
+    path: "{{ filebeat.user.directory }}"
+    state: directory
+    owner: "{{ filebeat.user.name }}"
+    group: "{{ filebeat.group.name }}"
+    mode: 0755
+
+- name: download filebeat
+  get_url:
+    url: '{{ filebeat.url }}'
+    dest: /tmp/{{ filebeat.filename }}.tar.gz
+    checksum: "{{ filebeat.checksum }}"
+  become: yes
+  become_method: su
+  become_user: "{{ filebeat.user.name }}"
+
+- unarchive:
+    src: /tmp/{{ filebeat.filename }}.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- copy:
+    src: /tmp/{{ filebeat.filename }}/{{ item }}
+    dest: "{{ filebeat.user.directory }}"
+    remote_src: yes
+    mode: preserve
+  with_items:
+    - filebeat
+    - filebeat.reference.yml
+    - filebeat.yml
+    - kibana
+    - module
+    - modules.d
+  notify: restart supervisor
+
+- file:
+    path: "{{ filebeat.user.directory }}/logs"
+    state: directory
+    owner: "{{ filebeat.user.name }}"
+    group: "{{ filebeat.group.name }}"
+    mode: 0755
+    recurse: yes
+- file:
+    path: "{{ filebeat.user.directory }}/filebeat"
+    mode: 0755
+
+- name: copy filebeat.yml
+  template:
+    src: filebeat.yml.j2
+    dest: "{{ filebeat.user.directory }}/filebeat.yml"
+    owner: "{{ filebeat.user.name }}"
+    group: "{{ filebeat.group.name }}"
+    mode: 0640
+  notify: restart supervisor
+
+
+- block:
+    - template:
+        src: security_limits.conf.j2
+        dest: /etc/security/limits.d/99-filebeat.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify: reboot system
+    - template:
+        src: sysctl.conf.j2
+        dest: /etc/sysctl.d/99-filebeat.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify: reboot system
+
+- block:
+    - replace:
+        path: /etc/supervisord.conf
+        regexp: ^minfds=[0-9]*
+        replace: minfds=65536
+      notify: restart supervisor
+    - name: add filebeat configuration
+      template:
+        src: supervisor.conf.j2
+        dest: "{{ supervisor.config_directory }}/filebeat.conf"
+        owner: root
+        group: root
+        mode: 0644
+      notify: restart supervisor
+
+- name: start filebeat
+  supervisorctl:
+    config: "{{ supervisor.config_directory }}/filebeat.conf"
+    name: filebeat
+    state: present

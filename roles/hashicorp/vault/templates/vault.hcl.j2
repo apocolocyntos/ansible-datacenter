@@ -1,0 +1,15 @@
+ui = true
+
+log_format = "json"
+log_level = "debug"
+plugin_directory = "/srv/vault/plugins"
+
+storage "file" {
+    path = "/srv/vault/data"
+}
+
+listener "tcp" {
+    address = "{{ ansible_default_ipv4.address }}:8200"
+    tls_cert_file = "/srv/vault/ssl/cert.pem"
+    tls_key_file = "/srv/vault/ssl/key.pem"
+}

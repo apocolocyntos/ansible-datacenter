@@ -1,0 +1,15 @@
+---
+
+elasticsearch:
+  service:
+    name: elasticsearch
+    port: 9200
+  user:
+    name: elasticsearch
+    comment: Elasticsearch
+    directory: /srv/elasticsearch
+  group:
+    name: elasticsearch
+  filename: elasticsearch-7.3.2
+  url: https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.3.2-linux-x86_64.tar.gz
+  checksum: 'sha512:https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.3.2-linux-x86_64.tar.gz.sha512'

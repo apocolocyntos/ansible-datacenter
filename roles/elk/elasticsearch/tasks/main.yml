@@ -1,0 +1,104 @@
+---
+
+- name: create group
+  group:
+    name: "{{ elasticsearch.group.name }}"
+    state: present
+    system: yes
+
+- name: create user
+  user:
+    comment: "{{ elasticsearch.user.comment }}"
+    name: "{{ elasticsearch.user.name }}"
+    group: "{{ elasticsearch.group.name }}"
+    home: "{{ elasticsearch.user.directory }}"
+    create_home: yes
+    system: yes
+    password_lock: yes
+
+- name: download elasticsearch
+  get_url:
+    url: '{{ elasticsearch.url }}'
+    dest: /tmp/{{ elasticsearch.filename }}.tar.gz
+    checksum: "{{ elasticsearch.checksum }}"
+  become: yes
+  become_method: su
+  become_user: "{{ elasticsearch.user.name }}"
+
+- unarchive:
+    src: /tmp/{{ elasticsearch.filename }}.tar.gz
+    dest: /tmp
+    remote_src: yes
+  become: yes
+  become_method: su
+  become_user: "{{ elasticsearch.user.name }}"
+
+- copy:
+    src: /tmp/{{ elasticsearch.filename }}/{{ item }}
+    dest: "{{ elasticsearch.user.directory }}"
+    remote_src: yes
+    mode: preserve
+  become: yes
+  become_method: su
+  become_user: "{{ elasticsearch.user.name }}"
+  with_items:
+    - bin
+    - config
+    - jdk
+    - lib
+    - logs
+    - modules
+    - plugins
+  notify: restart supervisor
+
+- file:
+    path: "{{ elasticsearch.user.directory }}/bin"
+    mode: 0755
+    recurse: yes
+
+- name: copy elasticsearch.yml
+  template:
+    src: elasticsearch.yml.j2
+    dest: "{{ elasticsearch.user.directory }}/config/elasticsearch.yml"
+    owner: "{{ elasticsearch.user.name }}"
+    group: "{{ elasticsearch.group.name }}"
+    mode: 0640
+  notify: restart supervisor
+
+
+- block:
+    - template:
+        src: security_limits.conf.j2
+        dest: /etc/security/limits.d/99-elasticsearch.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify: reboot system
+    - template:
+        src: sysctl.conf.j2
+        dest: /etc/sysctl.d/99-elasticsearch.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify: reboot system
+
+- block:
+    - replace:
+        path: /etc/supervisord.conf
+        regexp: ^minfds=[0-9]*
+        replace: minfds=65536
+      notify: restart supervisor
+    - name: add elasticsearch configuration
+      template:
+        src: supervisor.conf.j2
+        dest: "{{ supervisor.config_directory }}/elasticsearch.conf"
+        owner: root
+        group: root
+        mode: 0644
+      notify: restart supervisor
+
+- name: start elasticsearch
+  supervisorctl:
+    config: "{{ supervisor.config_directory }}/elasticsearch.conf"
+    name: elasticsearch
+    state: present

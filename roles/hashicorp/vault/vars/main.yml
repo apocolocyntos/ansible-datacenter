@@ -1,0 +1,8 @@
+---
+
+packages:
+  - unzip
+  - libcap-progs
+  - python3-firewall
+  - python2-pyOpenSSL
+  - python3-pyOpenSSL

@@ -1,0 +1,103 @@
+---
+
+- name: install packages
+  package:
+    name: '{{ packages }}'
+    state: present
+
+
+- name: create group
+  group:
+    name: vault
+    system: yes
+    state: present
+
+- name: create user
+  user:
+    comment: Hashicorp Vault
+    name: vault
+    group: vault
+    home: /srv/vault
+    system: yes
+    state: present
+    create_home: no
+
+- name: create folder
+  file:
+    path: /srv/vault
+    owner: vault
+    group: vault
+    mode: 0700
+    state: directory
+
+- block:
+  - name: download 'vault'
+    get_url:
+      url: 'https://releases.hashicorp.com/vault/1.2.2/vault_1.2.2_linux_amd64.zip'
+      dest: /tmp/vault.zip
+      checksum: 'sha256:7725b35d9ca8be3668abe63481f0731ca4730509419b4eb29fa0b0baa4798458'
+    become: yes
+    become_method: su
+    become_user: vault
+  - name: unzip vault.zip
+    unarchive:
+      src: /tmp/vault.zip
+      dest: /usr/local/bin
+      remote_src: yes
+  - shell: setcap cap_ipc_lock=+ep $(readlink -f /usr/local/bin/vault)
+
+- name: copy config file
+  template:
+    src: vault.hcl.j2
+    dest: /srv/vault/config.hcl
+    owner: vault
+    group: vault
+    mode: 0600
+
+- name: create data folder
+  file:
+    path: /srv/vault/{{ item }}
+    state: directory
+    owner: vault
+    group: vault
+    mode: 0700
+  with_items:
+    - data
+    - logs
+    - plugins
+    - ssl
+
+- block:
+  - openssl_privatekey:
+      path: /srv/vault/ssl/key.pem
+      size: 2048
+    notify: restart supervisor
+  - openssl_csr:
+      path: /srv/vault/ssl/csr.pem
+      privatekey_path: /srv/vault/ssl/key.pem
+      common_name: '{{ inventory_hostname }}.{{ datacenter.domain }}'
+    notify: restart supervisor
+  - openssl_certificate:
+      path: /srv/vault/ssl/cert.pem
+      csr_path: /srv/vault/ssl/csr.pem
+      privatekey_path: /srv/vault/ssl/key.pem
+      provider: selfsigned
+    notify: restart supervisor
+  become: yes
+  become_user: vault
+  become_method: su
+
+- name: add supervisor configuration
+  template:
+    src: supervisor.conf.j2
+    dest: /etc/supervisord.d/vault.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart supervisor
+
+- name: start vault
+  supervisorctl:
+    config: /etc/supervisord.d/vault.conf
+    name: vault
+    state: present
